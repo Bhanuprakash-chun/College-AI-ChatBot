@@ -1,0 +1,89 @@
+@import "tailwindcss";
+
+/* Class-based dark mode: <html class="dark"> */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --color-brand-50: #eef2ff;
+  --color-brand-100: #e0e7ff;
+  --color-brand-200: #c7d2fe;
+  --color-brand-300: #a5b4fc;
+  --color-brand-400: #818cf8;
+  --color-brand-500: #6366f1;
+  --color-brand-600: #4f46e5;
+  --color-brand-700: #4338ca;
+  --color-brand-800: #3730a3;
+  --color-brand-900: #312e81;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  @apply bg-slate-50 text-slate-900 antialiased dark:bg-slate-950 dark:text-slate-100;
+}
+
+/* Rendered assistant markdown */
+.prose-chat {
+  @apply text-[15px] leading-relaxed;
+}
+.prose-chat p {
+  @apply my-2 first:mt-0 last:mb-0;
+}
+.prose-chat ul {
+  @apply my-2 list-disc space-y-1 pl-5;
+}
+.prose-chat ol {
+  @apply my-2 list-decimal space-y-1 pl-5;
+}
+.prose-chat strong {
+  @apply font-semibold text-slate-900 dark:text-white;
+}
+.prose-chat a {
+  @apply text-brand-600 underline underline-offset-2 dark:text-brand-400;
+}
+.prose-chat code {
+  @apply rounded bg-slate-100 px-1 py-0.5 font-mono text-[13px] dark:bg-slate-800;
+}
+.prose-chat pre {
+  @apply my-2 overflow-x-auto rounded-lg bg-slate-900 p-3 text-slate-100;
+}
+.prose-chat pre code {
+  @apply bg-transparent p-0 text-slate-100;
+}
+.prose-chat blockquote {
+  @apply my-2 border-l-4 border-brand-300 pl-3 text-slate-600 italic dark:border-brand-700 dark:text-slate-300;
+}
+.prose-chat table {
+  @apply my-2 w-full border-collapse text-sm;
+}
+.prose-chat th,
+.prose-chat td {
+  @apply border border-slate-200 px-2 py-1 text-left dark:border-slate-700;
+}
+.prose-chat h1,
+.prose-chat h2,
+.prose-chat h3 {
+  @apply mt-3 mb-1 font-semibold;
+}
+
+/* Typing indicator */
+@keyframes blink {
+  0%, 80%, 100% { opacity: 0.25; transform: translateY(0); }
+  40% { opacity: 1; transform: translateY(-2px); }
+}
+.typing-dot {
+  animation: blink 1.2s infinite ease-in-out;
+}
+.typing-dot:nth-child(2) { animation-delay: 0.15s; }
+.typing-dot:nth-child(3) { animation-delay: 0.3s; }
+
+/* Thin scrollbars */
+.scroll-thin {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(148 163 184 / 0.5) transparent;
+}
