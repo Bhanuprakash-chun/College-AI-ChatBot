@@ -1,7 +1,9 @@
 // Thin fetch wrapper: attaches the JWT, normalises errors, and signals the
 // auth layer when the server says the session is no longer valid.
 
-const API_BASE = '/api'
+const API_BASE = import.meta.env.DEV
+  ? '/api'
+  : 'https://college-ai-chatbot-v10t.onrender.com'
 const TOKEN_KEY = 'college_ai_token'
 
 export class ApiError extends Error {

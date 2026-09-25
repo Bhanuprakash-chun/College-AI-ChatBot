@@ -4,7 +4,9 @@ import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
-  const backend = env.VITE_BACKEND_URL || 'http://127.0.0.1:8001'
+
+  const backend =
+    env.VITE_BACKEND_URL || 'https://college-ai-chatbot-v10t.onrender.com'
 
   return {
     plugins: [react(), tailwindcss()],
