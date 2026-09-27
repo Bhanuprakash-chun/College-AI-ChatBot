@@ -35,16 +35,22 @@ def _database_url() -> str:
             url = url.replace("postgres://", "postgresql://", 1)
         return url
 
-    # With fallback disabled (e.g. in Docker), target MySQL and let an outage
-    # fail loudly rather than silently migrating a local SQLite file.
+    # In production without an external database configured, use SQLite directly
+    if settings.is_production and settings.MYSQL_HOST in ("localhost", "127.0.0.1"):
+        return settings.sqlite_url
+
+    # With fallback disabled, target MySQL and let an outage fail loudly
     if not settings.DB_ALLOW_SQLITE_FALLBACK:
         return settings.mysql_url
 
-    # Probe MySQL; fall back to SQLite exactly as the app does.
+    # Probe MySQL with short timeout; fall back to SQLite if unavailable.
     try:
         from sqlalchemy import create_engine, text
 
-        engine = create_engine(settings.mysql_url)
+        engine = create_engine(
+            settings.mysql_url,
+            connect_args={"connect_timeout": 2},
+        )
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
         engine.dispose()

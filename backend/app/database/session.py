@@ -80,7 +80,7 @@ def _ensure_mysql_database(url: str) -> None:
 
     server_url, _, _ = url.rpartition(f"/{settings.MYSQL_DATABASE}")
     server_url = f"{server_url}/"
-    tmp_engine = create_engine(server_url, future=True)
+    tmp_engine = create_engine(server_url, future=True, connect_args={"connect_timeout": 2})
     try:
         with tmp_engine.connect() as conn:
             conn.execute(
@@ -123,6 +123,16 @@ def init_engine() -> Engine:
         else:
             db_state.backend = "mysql"
         db_state.url = explicit_url
+        db_state.engine = engine
+        return engine
+
+    # In production without an external database configured, use SQLite directly
+    if settings.is_production and settings.MYSQL_HOST in ("localhost", "127.0.0.1"):
+        engine = _make_engine(settings.sqlite_url)
+        _try_connect(engine)
+        db_state.backend = "sqlite"
+        db_state.fallback_reason = "SQLite used in single-server production"
+        db_state.url = settings.sqlite_url
         db_state.engine = engine
         return engine
 

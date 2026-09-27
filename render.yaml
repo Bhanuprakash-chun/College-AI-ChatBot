@@ -35,7 +35,7 @@ services:
       - key: EMBEDDING_MODEL
         value: all-MiniLM-L6-v2
       - key: WARMUP_ON_STARTUP
-        value: "true"
+        value: "false"
       - key: BOOTSTRAP_ADMIN_EMAIL
         value: admin@college.edu
       - key: BOOTSTRAP_ADMIN_PASSWORD

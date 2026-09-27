@@ -21,7 +21,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_DEFAULT_TIMEOUT=300 \
     PIP_RETRIES=10 \
-    HF_HOME=/app/.cache/huggingface
+    HF_HOME=/app/.cache/huggingface \
+    OMP_NUM_THREADS=1 \
+    MKL_NUM_THREADS=1
 
 WORKDIR /app
 
@@ -60,4 +62,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=3 \
   CMD python -c "import os, urllib.request; p = os.environ.get('PORT', '8000'); urllib.request.urlopen(f'http://127.0.0.1:{p}/health', timeout=5)" || exit 1
 
 # Apply DB migrations, then serve with gunicorn + uvicorn workers.
-CMD ["sh", "-c", "alembic upgrade head && gunicorn app.main:app --bind 0.0.0.0:${PORT:-8000} --workers 2 --worker-class uvicorn.workers.UvicornWorker --timeout 120 --forwarded-allow-ips='*'"]
+CMD ["sh", "-c", "alembic upgrade head && gunicorn app.main:app --bind 0.0.0.0:${PORT:-8000} --workers 1 --worker-class uvicorn.workers.UvicornWorker --timeout 120 --forwarded-allow-ips='*'"]
