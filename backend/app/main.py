@@ -13,7 +13,8 @@ from pathlib import Path
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import func, select
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -235,8 +236,8 @@ app.include_router(documents.router)
 app.include_router(admin.router)
 
 
-@app.get("/", tags=["System"], summary="API index")
-def root() -> dict:
+@app.get("/api", tags=["System"], summary="API index")
+def api_root() -> dict:
     return {
         "name": settings.APP_NAME,
         "version": settings.APP_VERSION,
@@ -244,3 +245,55 @@ def root() -> dict:
         "redoc": "/redoc",
         "health": "/health",
     }
+
+
+# ------------------------------------------------------------------ #
+# Serve the React SPA (built frontend)                                #
+# ------------------------------------------------------------------ #
+
+def _find_frontend_dir() -> Path | None:
+    """Locate built React SPA across Docker and local development layouts."""
+    import os
+
+    configured = os.environ.get("FRONTEND_DIST")
+    candidates = [
+        Path(configured).resolve() if configured else None,
+        Path(__file__).resolve().parents[1] / "static",            # Docker (/app/static) or backend/static
+        Path(__file__).resolve().parents[2] / "frontend" / "dist",  # Local dev (repo_root/frontend/dist)
+        Path(__file__).resolve().parents[2] / "static",            # repo_root/static
+    ]
+    for candidate in candidates:
+        if candidate and candidate.is_dir() and (candidate / "index.html").is_file():
+            return candidate
+    return None
+
+
+_FRONTEND_DIR = _find_frontend_dir()
+
+if _FRONTEND_DIR:
+    assets_dir = _FRONTEND_DIR / "assets"
+    if assets_dir.is_dir():
+        app.mount(
+            "/assets",
+            StaticFiles(directory=str(assets_dir)),
+            name="frontend-assets",
+        )
+
+    @app.get("/", include_in_schema=False)
+    async def serve_root():
+        return FileResponse(str(_FRONTEND_DIR / "index.html"))
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    async def spa_fallback(full_path: str):
+        # Unmatched API routes should return JSON 404, not HTML
+        if full_path.startswith("api/") or full_path == "api":
+            return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content={"detail": "Not Found"})
+        candidate = (_FRONTEND_DIR / full_path).resolve()
+        if candidate.is_file() and _FRONTEND_DIR in candidate.parents:
+            return FileResponse(str(candidate))
+        return FileResponse(str(_FRONTEND_DIR / "index.html"))
+else:
+    @app.get("/", include_in_schema=False)
+    async def serve_root_dev():
+        return RedirectResponse(url="/docs")
+

@@ -37,6 +37,10 @@ db_state = DatabaseState()
 
 
 def _make_engine(url: str) -> Engine:
+    # Render and Heroku provide PostgreSQL URLs starting with postgres://, which SQLAlchemy 1.4+ requires as postgresql://
+    if url.startswith("postgres://"):
+        url = url.replace("postgres://", "postgresql://", 1)
+
     if url.startswith("sqlite"):
         engine = create_engine(
             url,
@@ -112,7 +116,12 @@ def init_engine() -> Engine:
             db_state.url = settings.sqlite_url
             db_state.engine = engine
             return engine
-        db_state.backend = "sqlite" if explicit_url.startswith("sqlite") else "mysql"
+        if "postgres" in explicit_url:
+            db_state.backend = "postgresql"
+        elif explicit_url.startswith("sqlite"):
+            db_state.backend = "sqlite"
+        else:
+            db_state.backend = "mysql"
         db_state.url = explicit_url
         db_state.engine = engine
         return engine

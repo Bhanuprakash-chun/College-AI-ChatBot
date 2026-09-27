@@ -13,9 +13,9 @@ If nothing in the documents is relevant, it says so instead of guessing:
 | Database | MySQL 8 (automatic SQLite fallback), Alembic migrations |
 | Vector store | ChromaDB (persistent, cosine space) |
 | Embeddings | Sentence Transformers `all-MiniLM-L6-v2` |
-| LLM | Ollama, default `llama3.2:3b` |
+| LLM | Google Gemini (production) / Ollama (local dev) |
 | Auth | JWT access tokens, bcrypt password hashing, role-based access |
-| Ops | Docker Compose, GitHub Actions |
+| Ops | Single-server Docker, Render Blueprint, GitHub Actions |
 
 ---
 
@@ -32,7 +32,7 @@ Question (student asks)
   follow-up?  fold in the previous question for the search only
   ->  embed  ->  semantic search, top-K  ->  similarity threshold gate
         below threshold  ->  "not found" message, the LLM is never called
-        above threshold  ->  grounded prompt  ->  Ollama  ->  answer
+        above threshold  ->  grounded prompt  ->  LLM  ->  answer
   ->  citations built from the retrieved chunks' metadata  ->  saved to chat history
 ```
 
@@ -60,12 +60,14 @@ ollama pull llama3.2:3b
 ### 2. Backend
 
 ```bash
+# From project root:
+copy .env.example .env            # cp on macOS / Linux; then edit .env (set SECRET_KEY, GEMINI_API_KEY, etc.)
+
 cd backend
 python -m venv .venv
 .venv\Scripts\activate            # Windows
 # source .venv/bin/activate       # macOS / Linux
 pip install -r requirements.txt
-copy .env.example .env            # cp on macOS / Linux; then set SECRET_KEY
 
 alembic upgrade head
 python scripts/generate_sample_documents.py
@@ -96,7 +98,7 @@ These are **demo-only** credentials. Without the seed script, the first startup 
 
 ### MySQL
 
-Set `MYSQL_*` (or `DATABASE_URL`) in `backend/.env`. The database is created if missing. If MySQL is unreachable at startup, the app falls back to SQLite, and `/health` and the admin dashboard report it as **Degraded**. Set `DB_ALLOW_SQLITE_FALLBACK=false` to fail instead.
+Set `MYSQL_*` (or `DATABASE_URL`) in `.env`. The database is created if missing. If MySQL is unreachable at startup, the app falls back to SQLite, and `/health` and the admin dashboard report it as **Degraded**. Set `DB_ALLOW_SQLITE_FALLBACK=false` to fail instead.
 
 ---
 
@@ -105,17 +107,17 @@ Set `MYSQL_*` (or `DATABASE_URL`) in `backend/.env`. The database is created if 
 1. Sign in as **admin**. The dashboard shows users, documents, chunks, questions, active users, processing, and failed documents, plus live health for the database, ChromaDB, and Ollama.
 2. **Manage documents**: upload `documents/demo-upload/academic_calendar_2025_26.pdf`. It is deliberately not pre-indexed. It appears as **Processing**, then turns **Ready** on its own.
 3. Sign out and sign in as **student**.
-4. Ask *"When do the odd semester end exams start this year?"* The answer (17–29 November 2025) comes from the document you just uploaded, with **Academic Calendar 2025-26 · p.1** as the source.
-5. Follow up with *"And the even semester ones?"* Multi-turn context resolves it to 18–30 May 2026.
+4. Ask *"When do the odd semester end exams start this year?"* The answer (17-29 November 2025) comes from the document you just uploaded, with **Academic Calendar 2025-26, p.1** as the source.
+5. Follow up with *"And the even semester ones?"* Multi-turn context resolves it to 18-30 May 2026.
 6. Ask something off-topic, such as *"Who is the chief minister of the state?"* It is refused and marked **Not found in college documents**.
-7. Rate answers 👍/👎, then open **History** to search and reopen conversations.
+7. Rate answers with thumbs up/down, then open **History** to search and reopen conversations.
 8. Back as admin, review **Analytics**, **Feedback**, and **Audit logs**. **Reprocess** or **Delete** the calendar and ask again: its answers are gone.
 
 ---
 
 ## Configuration
 
-All settings are environment variables (see `backend/.env.example`). The key RAG settings:
+All settings are environment variables (see `.env.example`). The key RAG settings:
 
 | Variable | Default | Notes |
 |---|---|---|
@@ -138,7 +140,7 @@ All settings are environment variables (see `backend/.env.example`). The key RAG
 
 | Method | Path | Access |
 |---|---|---|
-| POST | `/auth/register` · `/auth/login` · `/auth/logout` | public · public · signed in |
+| POST | `/auth/register`, `/auth/login`, `/auth/logout` | public, public, signed in |
 | GET | `/auth/me` | signed in |
 | POST | `/chat` | signed in |
 | GET / POST | `/chat/sessions` | own sessions |
@@ -146,11 +148,11 @@ All settings are environment variables (see `backend/.env.example`). The key RAG
 | POST | `/feedback` | own answers |
 | GET | `/documents` | signed in (ready documents, metadata only) |
 | POST | `/admin/documents/upload` | admin |
-| GET | `/admin/documents` · `/admin/documents/{id}` | admin |
+| GET | `/admin/documents`, `/admin/documents/{id}` | admin |
 | DELETE | `/admin/documents/{id}` | admin |
 | POST | `/admin/documents/{id}/reprocess` | admin |
 | GET / PATCH / DELETE | `/admin/users`, `/admin/users/{id}` | admin |
-| GET | `/admin/statistics` · `/admin/analytics` · `/admin/feedback` · `/admin/audit-logs` | admin |
+| GET | `/admin/statistics`, `/admin/analytics`, `/admin/feedback`, `/admin/audit-logs` | admin |
 | GET | `/health` | public |
 
 ---
@@ -190,60 +192,82 @@ Frontend: `npm run lint` and `npm run build`.
 
 ---
 
-## Docker
+## Production Deployment (Render)
+
+This project is configured for **single-server deployment** where FastAPI serves both the REST API and the compiled React single-page application (SPA) from one container.
+
+### Deploying via Render Blueprint (Recommended)
+
+1. Push your repository to GitHub.
+2. In the [Render Dashboard](https://dashboard.render.com), click **New +** > **Blueprint**.
+3. Select your repository. Render will automatically parse `render.yaml`.
+4. Configure required environment variables:
+   - `GEMINI_API_KEY`: Your Google Gemini API key (or set `LLM_PROVIDER=ollama` if hosting Ollama).
+   - `SECRET_KEY`: Automatically generated by Render Blueprint.
+   - `DATABASE_URL`: *(Optional)* If using external PostgreSQL/MySQL. Defaults to SQLite fallback.
+5. Click **Apply**. Render builds both the frontend and backend in one Docker image and launches the service.
+
+### Single-Server Docker (Local or VPS)
+
+Build and run the unified single-server image locally:
 
 ```bash
-cp .env.example .env        # set SECRET_KEY, MYSQL_ROOT_PASSWORD, MYSQL_PASSWORD
-docker compose up -d --build
+# Build the unified image (compiles React SPA + sets up Python backend)
+docker build -t college-ai-chatbot .
+
+# Run container
+docker run -p 8000:8000 \
+  -e SECRET_KEY="your-production-secret-key-here" \
+  -e GEMINI_API_KEY="your-gemini-api-key" \
+  -e LLM_PROVIDER="gemini" \
+  -e ENVIRONMENT="production" \
+  college-ai-chatbot
 ```
 
-The stack runs MySQL, Ollama (a one-shot service pulls the model), the backend (runs `alembic upgrade head`, then serves), and nginx serving the built frontend with `/api` proxied. Data persists in named volumes: `mysql_data`, `chroma_data`, `documents_data`, and `ollama_models`. Open <http://localhost:8080>.
-
-Sign in with `BOOTSTRAP_ADMIN_EMAIL` and `BOOTSTRAP_ADMIN_PASSWORD` from `.env`. If you left the password blank, find the generated one in the backend log:
-
-```bash
-docker compose logs backend | grep -A3 "BOOTSTRAP ADMIN"
-```
-
-To load the sample documents and the demo student into the running stack:
-
-```bash
-docker compose exec backend python scripts/generate_sample_documents.py --out /data/documents/samples
-docker compose exec backend python scripts/seed_demo.py --source /data/documents/samples
-```
-
-The seed script leaves an existing admin untouched, so in Docker the admin keeps its bootstrap password.
+Open <http://localhost:8000> -- the React frontend is served at `/`, and the API is at `/docs`.
 
 ---
 
 ## Project structure
 
-```text
+```
 college-ai-chatbot/
+├── Dockerfile           # Unified multi-stage Docker build (React SPA + FastAPI backend)
+├── render.yaml          # Render Blueprint infrastructure-as-code
+├── .dockerignore        # Docker build ignore rules
+├── .gitignore           # Git ignore patterns
+├── .env.example         # Single unified environment template (used across dev, Docker, Render)
+├── README.md            # Project documentation
 ├── backend/
 │   ├── app/
-│   │   ├── core/        config, security (JWT/bcrypt), RBAC dependencies, rate limiting
-│   │   ├── database/    engine + session, MySQL -> SQLite fallback
-│   │   ├── models/      User, Document, ChatSession, ChatMessage, Feedback, AuditLog
-│   │   ├── schemas/     Pydantic request/response models
-│   │   ├── routers/     auth, chat, feedback, documents, admin, health
-│   │   ├── services/    ingestion (background), chat, analytics, audit
-│   │   ├── rag/         extractor, cleaner, chunker, embedder, vector store,
-│   │   │                retriever, prompt, Ollama client, pipeline
-│   │   └── utils/       upload validation and safe filenames
-│   ├── alembic/         migrations
-│   ├── scripts/         sample documents, demo seed, live RAG verification
-│   └── tests/
-├── frontend/src/
-│   ├── pages/           chat, history, documents, profile, auth, admin/*
-│   ├── components/      layout, chat message, citations, charts, UI primitives
-│   ├── context/         auth, theme, toasts, chat sessions
-│   └── lib/             API client, formatters
-├── documents/           uploaded files (samples/ and demo-upload/ are generated)
-├── chroma_db/           persistent vectors
-├── docker-compose.yml
-└── .github/workflows/ci.yml
+│   │   ├── core/        # config, security (JWT/bcrypt), RBAC dependencies, rate limiting
+│   │   ├── database/    # engine + session, MySQL / Postgres / SQLite fallback
+│   │   ├── models/      # User, Document, ChatSession, ChatMessage, Feedback, AuditLog
+│   │   ├── schemas/     # Pydantic request/response models
+│   │   ├── routers/     # auth, chat, feedback, documents, admin, health
+│   │   ├── services/    # ingestion (background), chat, analytics, audit
+│   │   ├── rag/         # extractor, cleaner, chunker, embedder, vector store,
+│   │   │                # retriever, prompt, Gemini/Ollama clients, pipeline
+│   │   ├── utils/       # upload validation and safe filenames
+│   │   └── main.py      # FastAPI application & SPA static file serving
+│   ├── alembic/         # migrations
+│   ├── scripts/         # sample documents, demo seed, live RAG verification
+│   ├── tests/           # comprehensive unit & integration tests
+│   └── requirements.txt # Python dependencies
+├── frontend/
+│   ├── src/
+│   │   ├── pages/       # chat, history, documents, profile, auth, admin/*
+│   │   ├── components/  # layout, chat message, citations, charts, UI primitives
+│   │   ├── context/     # auth, theme, toasts, chat sessions
+│   │   └── lib/         # API client, formatters
+│   ├── package.json     # Node dependencies and scripts
+│   └── vite.config.js   # Vite build and dev proxy config
+├── documents/           # uploaded files (samples/ and demo-upload/ are generated)
+├── chroma_db/           # persistent vectors
+└── .github/workflows/   # GitHub Actions CI workflow
 ```
+
+---
 
 ## Extending
 
@@ -252,11 +276,13 @@ college-ai-chatbot/
 - **Multi-worker rate limiting**: the limiter is in-process. With several workers, back it with Redis.
 - **Reranking**: `Retriever.retrieve` returns the top-K with scores. A cross-encoder can re-order them before the threshold check.
 
+---
+
 ## Known limitations
 
-- The 0.30 threshold was tuned on the sample corpus: off-topic questions scored 0.11–0.27 and on-topic questions 0.59–0.80. Re-check both ranges on your real documents; the admin **Analytics** page lists recently unanswered questions to help.
+- The 0.30 threshold was tuned on the sample corpus: off-topic questions scored 0.11-0.27 and on-topic questions 0.59-0.80. Re-check both ranges on your real documents; the admin **Analytics** page lists recently unanswered questions to help.
 - Follow-up detection uses a word-pattern heuristic to decide whether the previous question is folded into the search. It never finds answers itself, but an unusual phrasing can be misclassified.
 - Scanned, image-only PDFs are rejected with a clear message. OCR is not included.
 - Logout is client-side (JWTs are stateless). A token stays valid until it expires, so keep the expiry short.
-- `llama3.2:3b` on CPU answers in about 3–6 seconds once loaded. Startup warms the model in the background, and the very first load after Ollama starts can take a minute.
+- `llama3.2:3b` on CPU answers in about 3-6 seconds once loaded. Startup warms the model in the background, and the very first load after Ollama starts can take a minute.
 - The sample documents are realistic but **fictional**. Replace them with your college's real documents.

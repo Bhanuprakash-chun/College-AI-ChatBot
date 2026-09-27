@@ -5,8 +5,7 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
 
-  const backend =
-    env.VITE_BACKEND_URL || 'https://college-ai-chatbot-v10t.onrender.com'
+  const backend = env.VITE_BACKEND_URL || 'http://127.0.0.1:8000'
 
   return {
     plugins: [react(), tailwindcss()],
@@ -42,10 +41,6 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 5173,
       strictPort: true,
-
-      allowedHosts: [
-        'opens-waves-morrison-syracuse.trycloudflare.com',
-      ],
 
       proxy: {
         '/api': {

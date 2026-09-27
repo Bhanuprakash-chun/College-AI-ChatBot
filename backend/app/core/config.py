@@ -14,11 +14,16 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 BASE_DIR = Path(__file__).resolve().parents[2]
+REPO_ROOT = BASE_DIR.parent if (BASE_DIR.parent / "frontend").is_dir() else BASE_DIR
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=str(BASE_DIR / ".env"),
+        env_file=(
+            str(REPO_ROOT / ".env"),
+            str(BASE_DIR / ".env"),
+            ".env",
+        ),
         env_file_encoding="utf-8",
         extra="ignore",
         case_sensitive=False,
@@ -147,7 +152,7 @@ class Settings(BaseSettings):
     # Vector Store
     # ============================================================
 
-    CHROMA_PATH: str = str(BASE_DIR.parent / "chroma_db")
+    CHROMA_PATH: str = str(REPO_ROOT / "chroma_db")
 
     CHROMA_COLLECTION: str = "college_documents"
 
@@ -155,7 +160,7 @@ class Settings(BaseSettings):
     # Uploads
     # ============================================================
 
-    DOCUMENTS_DIR: str = str(BASE_DIR.parent / "documents")
+    DOCUMENTS_DIR: str = str(REPO_ROOT / "documents")
 
     MAX_UPLOAD_MB: int = 25
 

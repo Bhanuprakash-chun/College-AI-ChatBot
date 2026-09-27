@@ -4,6 +4,7 @@ __pycache__/
 .venv/
 .venv*/
 venv/
+*.egg-info/
 
 # Environment / secrets
 .env
@@ -20,11 +21,16 @@ chroma_db/
 
 # Uploaded/generated documents
 documents/
-*.pdf
 
 # Node
 node_modules/
 frontend/dist/
+
+# Build artifacts (frontend built into backend for production)
+backend/static/
+
+# Cloudflare (no longer used)
+frontend/.wrangler/
 
 # Logs
 *.log

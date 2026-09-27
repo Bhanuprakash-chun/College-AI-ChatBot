@@ -3,7 +3,7 @@
 
 const API_BASE = import.meta.env.DEV
   ? '/api'
-  : 'https://college-ai-chatbot-v10t.onrender.com'
+  : ''
 const TOKEN_KEY = 'college_ai_token'
 
 export class ApiError extends Error {

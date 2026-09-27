@@ -4,11 +4,14 @@ uvicorn[standard]>=0.30.0
 pydantic[email]>=2.7.0
 pydantic-settings>=2.3.0
 python-multipart>=0.0.9
+aiofiles>=24.1.0
+gunicorn>=22.0.0
 
 # --- Database / migrations ---
 SQLAlchemy>=2.0.30
 alembic>=1.13.0
 PyMySQL>=1.1.0
+psycopg2-binary>=2.9.9
 cryptography>=42.0.0
 
 # --- Auth ---

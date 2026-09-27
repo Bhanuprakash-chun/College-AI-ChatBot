@@ -30,7 +30,10 @@ target_metadata = Base.metadata
 
 def _database_url() -> str:
     if settings.DATABASE_URL.strip():
-        return settings.DATABASE_URL.strip()
+        url = settings.DATABASE_URL.strip()
+        if url.startswith("postgres://"):
+            url = url.replace("postgres://", "postgresql://", 1)
+        return url
 
     # With fallback disabled (e.g. in Docker), target MySQL and let an outage
     # fail loudly rather than silently migrating a local SQLite file.

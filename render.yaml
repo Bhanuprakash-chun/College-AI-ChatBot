@@ -1,0 +1,58 @@
+# Render Blueprint – single web service (frontend + backend).
+# https://docs.render.com/infrastructure-as-code
+#
+# Usage:
+#   1. Push this file to the repo root.
+#   2. On Render → New → Blueprint → select this repo.
+#   3. Set the environment variables listed below in Render dashboard.
+
+services:
+  - type: web
+    name: college-ai-chatbot
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    region: oregon
+    plan: free
+
+    envVars:
+      # --- REQUIRED (set these in the Render dashboard) ---
+      - key: SECRET_KEY
+        generateValue: true       # Render generates a secure random value
+      - key: GEMINI_API_KEY
+        sync: false               # Must be set manually in dashboard
+      - key: DATABASE_URL
+        sync: false               # Set if using external MySQL/Postgres
+
+      # --- Defaults (override in dashboard if needed) ---
+      - key: ENVIRONMENT
+        value: production
+      - key: LLM_PROVIDER
+        value: gemini
+      - key: GEMINI_MODEL
+        value: gemini-3.6-flash
+      - key: DB_ALLOW_SQLITE_FALLBACK
+        value: "true"
+      - key: EMBEDDING_MODEL
+        value: all-MiniLM-L6-v2
+      - key: WARMUP_ON_STARTUP
+        value: "true"
+      - key: BOOTSTRAP_ADMIN_EMAIL
+        value: admin@college.edu
+      - key: BOOTSTRAP_ADMIN_PASSWORD
+        sync: false               # Optional: set password, or leave empty to auto-generate in logs
+      - key: SQLITE_PATH
+        value: /data/college_ai.db
+      - key: CORS_ORIGINS
+        value: ""                 # Not needed for same-origin; set if using external frontend
+
+    # Note on Persistent Storage:
+    # Render's 'free' plan does not support persistent disks.
+    # On the free plan, SQLite and ChromaDB operate on container storage.
+    # To attach a persistent disk:
+    #   1. Change 'plan: free' to 'plan: starter'
+    #   2. Uncomment the disk block below
+    # disk:
+    #   name: college-ai-data
+    #   mountPath: /data
+    #   sizeGB: 1
+
